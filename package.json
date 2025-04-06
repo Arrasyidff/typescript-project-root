@@ -10,11 +10,13 @@
     "lint": "eslint . --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "jest --config=jest.config.js",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
     "test:integration": "jest --config=jest.config.js --testMatch=\"**/tests/integration/**/*.test.ts\"",
     "docker:dev": "docker-compose up",
-    "docker:build": "docker build -t my-backend-app -f docker/Dockerfile.prod ."
+    "docker:dev:build": "docker-compose build",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "docker:prod:build": "docker-compose -f docker-compose.prod.yml build",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
   },
   "keywords": [
     "node",

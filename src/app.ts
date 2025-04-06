@@ -24,7 +24,7 @@ if (config.nodeEnv === 'development') {
 
 // Health check route
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Server is running' });
+  res.status(200).json({ status: 'ok', message: `Server is running on ${process.env.APP_NAME}` });
 });
 
 // API Routes
