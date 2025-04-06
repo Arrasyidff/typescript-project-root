@@ -1,60 +1,51 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { userService } from '../services/user.service';
 import { logger } from '../utils/logger';
 import { ZodError } from 'zod';
+import { AppError, catchAsync } from '../utils';
 
 /**
  * Get user profile
  * @route GET /api/users/profile
  * @access Private
  */
-export const getUserProfile = async (
+export const getUserProfile = catchAsync(async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
-  try {
-    const userId = req.user?._id;
+  const userId = req.user?._id;
 
-    if (!userId) {
-      res.status(401).json({
-        status: 'fail',
-        message: 'User not authenticated',
-      });
-      return;
-    }
-
-    const user = await userService.getUserById(userId.toString());
-
-    res.status(200).json(user);
-  } catch (error: any) {
-    logger.error(`Get user profile error: ${error.message}`);
-    res.status(error.statusCode || 500).json({
-      status: 'error',
-      message: error.message,
-    });
+  if (!userId) {
+    return next(new AppError('User not authenticated', 401));
   }
-};
+
+  const user = await userService.getUserById(userId.toString());
+
+  if (!user) {
+    return next(new AppError('User not found', 404));
+  }
+
+  res.status(200).json(user);
+});
 
 /**
  * Update user profile
  * @route PUT /api/users/profile
  * @access Private
  */
-export const updateUserProfile = async (
+export const updateUserProfile = catchAsync(async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
+  const userId = req.user?._id;
+
+  if (!userId) {
+    return next(new AppError('User not authenticated', 401));
+  }
+
   try {
-    const userId = req.user?._id;
-
-    if (!userId) {
-      res.status(401).json({
-        status: 'fail',
-        message: 'User not authenticated',
-      });
-      return;
-    }
-
     const userData = req.body;
     const updatedUser = await userService.updateUserProfile(
       userId.toString(),
@@ -62,144 +53,117 @@ export const updateUserProfile = async (
     );
 
     res.status(200).json(updatedUser);
-  } catch (error: any) {
-    logger.error(`Update user profile error: ${error.message}`);
-    
+  } catch (error) {
     if (error instanceof ZodError) {
-      res.status(400).json({
-        status: 'fail',
-        message: 'Validation failed',
-        errors: error.errors.reduce((acc, curr) => {
-          acc[curr.path.join('.')] = curr.message;
-          return acc;
-        }, {} as Record<string, string>),
-      });
-      return;
+      const formattedErrors = error.errors.reduce((acc, curr) => {
+        acc[curr.path.join('.')] = curr.message;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      return next(new AppError(
+        `Validation failed: ${JSON.stringify(formattedErrors)}`, 
+        400
+      ));
     }
-    
-    res.status(error.statusCode || 500).json({
-      status: 'error',
-      message: error.message,
-    });
+    next(error);
   }
-};
+});
 
 /**
  * Get all users (Admin only)
  * @route GET /api/users
  * @access Private/Admin
  */
-export const getAllUsers = async (
+export const getAllUsers = catchAsync(async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  try {
-    const users = await userService.getAllUsers();
+  const users = await userService.getAllUsers();
 
-    res.status(200).json({
-      status: 'success',
-      results: users.length,
-      data: users,
-    });
-  } catch (error: any) {
-    logger.error(`Get all users error: ${error.message}`);
-    res.status(500).json({
-      status: 'error',
-      message: error.message,
-    });
-  }
-};
+  res.status(200).json({
+    status: 'success',
+    results: users.length,
+    data: users,
+  });
+});
 
 /**
  * Get user by ID
  * @route GET /api/users/:id
  * @access Private/Admin
  */
-export const getUserById = async (
+export const getUserById = catchAsync(async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
-  try {
-    const { id } = req.params;
-    const user = await userService.getUserById(id);
+  const { id } = req.params;
+  const user = await userService.getUserById(id);
 
-    if (!user) {
-      res.status(404).json({
-        status: 'fail',
-        message: 'User not found',
-      });
-      return;
-    }
-
-    res.status(200).json(user);
-  } catch (error: any) {
-    logger.error(`Get user by ID error: ${error.message}`);
-    res.status(error.statusCode || 500).json({
-      status: 'error',
-      message: error.message,
-    });
+  if (!user) {
+    return next(new AppError('User not found', 404));
   }
-};
+
+  res.status(200).json(user);
+});
 
 /**
  * Update user (Admin only)
  * @route PUT /api/users/:id
  * @access Private/Admin
  */
-export const updateUser = async (
+export const updateUser = catchAsync(async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
   try {
     const { id } = req.params;
     const userData = req.body;
     const updatedUser = await userService.updateUser(id, userData);
 
-    res.status(200).json(updatedUser);
-  } catch (error: any) {
-    logger.error(`Update user error: ${error.message}`);
-    
-    if (error instanceof ZodError) {
-      res.status(400).json({
-        status: 'fail',
-        message: 'Validation failed',
-        errors: error.errors.reduce((acc, curr) => {
-          acc[curr.path.join('.')] = curr.message;
-          return acc;
-        }, {} as Record<string, string>),
-      });
-      return;
+    if (!updatedUser) {
+      return next(new AppError('User not found', 404));
     }
-    
-    res.status(error.statusCode || 500).json({
-      status: 'error',
-      message: error.message,
-    });
+
+    res.status(200).json(updatedUser);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const formattedErrors = error.errors.reduce((acc, curr) => {
+        acc[curr.path.join('.')] = curr.message;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      return next(new AppError(
+        `Validation failed: ${JSON.stringify(formattedErrors)}`, 
+        400
+      ));
+    }
+    next(error);
   }
-};
+});
 
 /**
  * Delete user (Admin only)
  * @route DELETE /api/users/:id
  * @access Private/Admin
  */
-export const deleteUser = async (
+export const deleteUser = catchAsync(async (
   req: Request,
-  res: Response
+  res: Response,
+  next: NextFunction
 ): Promise<void> => {
+  const { id } = req.params;
+  
   try {
-    const { id } = req.params;
     await userService.deleteUser(id);
-
+    
+    // Respond with 204 No Content
     res.status(204).json({
       status: 'success',
       data: null,
     });
-  } catch (error: any) {
-    logger.error(`Delete user error: ${error.message}`);
-    res.status(error.statusCode || 500).json({
-      status: 'error',
-      message: error.message,
-    });
+  } catch (error) {
+    next(error);
   }
-};
+});

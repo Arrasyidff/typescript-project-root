@@ -3,68 +3,46 @@ import mongoose from 'mongoose';
 import { logger } from '../utils/logger';
 import { config } from '../config/env';
 import { ZodError } from 'zod';
-
-interface IAppError extends Error {
-  statusCode?: number;
-  status?: string;
-  isOperational?: boolean;
-  code?: number;
-  path?: string;
-  value?: any;
-  errors?: Record<string, any>;
-  keyValue?: Record<string, any>;
-}
+import { AppError } from '../utils/app-error';
 
 // Handle JWT error
-const handleJWTError = (): IAppError => {
-  const error: IAppError = new Error('Invalid token. Please log in again');
-  error.statusCode = 401;
-  return error;
+const handleJWTError = (): AppError => {
+  return new AppError('Invalid token. Please log in again', 401);
 };
 
 // Handle JWT expired error
-const handleJWTExpiredError = (): IAppError => {
-  const error: IAppError = new Error('Your token has expired. Please log in again');
-  error.statusCode = 401;
-  return error;
+const handleJWTExpiredError = (): AppError => {
+  return new AppError('Your token has expired. Please log in again', 401);
 };
 
 // Handle CastError (invalid MongoDB ObjectId)
-const handleCastErrorDB = (err: mongoose.Error.CastError): IAppError => {
+const handleCastErrorDB = (err: mongoose.Error.CastError): AppError => {
   const message = `Invalid ${err.path}: ${err.value}`;
-  const error: IAppError = new Error(message);
-  error.statusCode = 400;
-  return error;
+  return new AppError(message, 400);
 };
 
 // Handle duplicate field value error (MongoDB)
-const handleDuplicateFieldsDB = (err: any): IAppError => {
+const handleDuplicateFieldsDB = (err: any): AppError => {
   const value = err.keyValue ? Object.values(err.keyValue)[0] : '';
   const message = `Duplicate field value: ${value}. Please use another value`;
-  const error: IAppError = new Error(message);
-  error.statusCode = 400;
-  return error;
+  return new AppError(message, 400);
 };
 
 // Handle validation error (MongoDB)
-const handleValidationErrorDB = (err: mongoose.Error.ValidationError): IAppError => {
+const handleValidationErrorDB = (err: mongoose.Error.ValidationError): AppError => {
   const errors = Object.values(err.errors).map((el: any) => el.message);
   const message = `Invalid input data: ${errors.join('. ')}`;
-  const error: IAppError = new Error(message);
-  error.statusCode = 400;
-  return error;
+  return new AppError(message, 400);
 };
 
 // Handle Zod validation error
-const handleZodError = (err: ZodError): IAppError => {
-  const message = `Validation error: ${err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ')}`;
-  const error: IAppError = new Error(message);
-  error.statusCode = 400;
-  return error;
+const handleZodError = (err: ZodError): AppError => {
+  const formattedErrors = err.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+  return new AppError(`Validation error: ${formattedErrors}`, 400);
 };
 
 // Send error response in development environment
-const sendErrorDev = (err: IAppError, res: Response): void => {
+const sendErrorDev = (err: AppError, res: Response): void => {
   res.status(err.statusCode || 500).json({
     status: err.status || 'error',
     message: err.message,
@@ -74,7 +52,7 @@ const sendErrorDev = (err: IAppError, res: Response): void => {
 };
 
 // Send error response in production environment
-const sendErrorProd = (err: IAppError, res: Response): void => {
+const sendErrorProd = (err: AppError, res: Response): void => {
   // Operational, trusted error: send message to client
   if (err.isOperational) {
     res.status(err.statusCode || 500).json({
@@ -93,7 +71,7 @@ const sendErrorProd = (err: IAppError, res: Response): void => {
 
 // Global error handling middleware
 export const errorMiddleware = (
-  err: IAppError,
+  err: any,
   req: Request,
   res: Response,
   next: NextFunction
@@ -106,6 +84,7 @@ export const errorMiddleware = (
   } else if (config.nodeEnv === 'production') {
     let error = { ...err };
     error.message = err.message;
+    error.stack = err.stack;
 
     // Handle specific error types
     if (err instanceof mongoose.Error.CastError) error = handleCastErrorDB(err);
