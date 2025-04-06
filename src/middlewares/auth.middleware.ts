@@ -1,13 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { User } from '../models/user.model';
-import { config } from '../config/env';
+import { User, IUserDocument } from '../models/user.model';
 import { logger } from '../utils/logger';
+import { verifyToken } from '../utils/jwt.utils';
 
-interface IJwtPayload {
+interface DecodedToken {
   id: string;
-  iat: number;
-  exp: number;
+  iat?: number;
+  exp?: number;
 }
 
 /**
@@ -41,7 +40,7 @@ export const protect = async (
     }
 
     // Verify token
-    const decoded = jwt.verify(token, config.jwtSecret) as IJwtPayload;
+    const decoded = verifyToken(token) as DecodedToken;
 
     // Find user by id (from token)
     const currentUser = await User.findById(decoded.id);

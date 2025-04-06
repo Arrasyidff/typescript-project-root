@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import { Secret } from 'jsonwebtoken';
 
 // Load environment variables from .env file
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -15,7 +16,7 @@ export const config = {
     : process.env.MONGO_URI || 'mongodb://localhost:27017/mydatabase',
   
   // JWT configuration
-  jwtSecret: process.env.JWT_SECRET || 'fallback_jwt_secret_not_for_production',
+  jwtSecret: process.env.JWT_SECRET || 'fallback_jwt_secret_not_for_production' as Secret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '90d',
   
   // Logging

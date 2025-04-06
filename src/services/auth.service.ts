@@ -1,18 +1,24 @@
-import jwt from 'jsonwebtoken';
 import { User, IUserDocument } from '../models/user.model';
-import { IAuthResponse } from '../types/user.interface';
-import { config } from '../config/env';
+import { IAuthResponse, IUserResponse } from '../types/user.interface';
 import { registerSchema, loginSchema, RegisterInput, LoginInput } from '../schemas/user.schema';
+import { Types } from 'mongoose';
+import { generateToken } from '../utils/jwt.utils';
 
 /**
- * Generate JWT token
- * @param id user id
- * @returns JWT token
+ * Convert Mongoose document to user response object
+ * @param user Mongoose user document
+ * @returns User response object
  */
-const generateToken = (id: string): string => {
-  return jwt.sign({ id }, config.jwtSecret, {
-    expiresIn: config.jwtExpiresIn,
-  });
+const formatUserResponse = (user: IUserDocument): IUserResponse => {
+  return {
+    _id: user._id.toString(),
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    isActive: user.isActive,
+    createdAt: user.createdAt || new Date(),
+    updatedAt: user.updatedAt || new Date()
+  };
 };
 
 /**
@@ -34,10 +40,10 @@ const register = async (userData: RegisterInput): Promise<IAuthResponse> => {
   const user = await User.create(validatedData);
 
   // Generate token
-  const token = generateToken(user._id.toString());
+  const token = generateToken({ id: (user._id as Types.ObjectId).toString() });
 
   return {
-    user: user.toJSON(),
+    user: formatUserResponse(user),
     token,
   };
 };
@@ -65,10 +71,10 @@ const login = async (loginData: LoginInput): Promise<IAuthResponse> => {
   }
 
   // Generate token
-  const token = generateToken(user._id.toString());
+  const token = generateToken({ id: (user._id as Types.ObjectId).toString() });
 
   return {
-    user: user.toJSON(),
+    user: formatUserResponse(user),
     token,
   };
 };
@@ -76,5 +82,5 @@ const login = async (loginData: LoginInput): Promise<IAuthResponse> => {
 export const authService = {
   register,
   login,
-  generateToken,
+  formatUserResponse
 };

@@ -1,9 +1,15 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema, HydratedDocument, Types } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { IUser } from '../types/user.interface';
 
 export interface IUserDocument extends IUser, Document {
+  _id: Types.ObjectId;
   comparePassword(candidatePassword: string): Promise<boolean>;
+}
+
+// Interface untuk dokumen saat dalam hook
+interface IUserModel extends mongoose.Model<IUserDocument> {
+  // Interface kosong, tambahkan metode statis jika diperlukan
 }
 
 const userSchema: Schema = new Schema(
@@ -52,7 +58,7 @@ const userSchema: Schema = new Schema(
 );
 
 // Hash password before saving
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function(this: HydratedDocument<IUserDocument>, next) {
   // Only hash the password if it has been modified (or is new)
   if (!this.isModified('password')) return next();
 
@@ -68,10 +74,11 @@ userSchema.pre('save', async function (next) {
 });
 
 // Method to compare password
-userSchema.methods.comparePassword = async function (
+userSchema.methods.comparePassword = async function(
+  this: HydratedDocument<IUserDocument>,
   candidatePassword: string
 ): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-export const User = mongoose.model<IUserDocument>('User', userSchema);
+export const User = mongoose.model<IUserDocument, IUserModel>('User', userSchema);
