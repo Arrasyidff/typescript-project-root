@@ -1,0 +1,31 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Dependency directories
+node_modules/
+
+# Build directory
+dist/
+
+# Environment variables
+.env
+.env.prod
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Coverage directory
+coverage/
+
+# Misc
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Prisma
+prisma/.env
